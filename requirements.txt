@@ -1,25 +1,26 @@
 # Core dependencies
-streamlit==1.32.0
-PyPDF2==3.0.1
-psutil==5.9.5
+streamlit>=1.28.0
+langchain>=0.0.315
+langchain-groq>=0.1.0
+langchain-community>=0.0.13
+langchain-core>=0.1.6
 
-# LangChain ecosystem
-langchain==0.1.4
-langchain-groq==0.1.3
-langchain-core==0.1.13
-langchain-community==0.0.21
+# Embeddings and vectorstores
+faiss-cpu>=1.7.4
+sentence-transformers
+huggingface-hub>=0.19.0
 
 # Document processing
-unstructured==0.10.30
-pdfminer-six==20221105
+PyPDF2
+pypdf
 
-# Embeddings and vector store
-scikit-learn==1.3.2
-sentence-transformers==2.2.2
-huggingface-hub==0.19.4
+# LLM providers
+groq
 
-# LLM API
-groq==0.4.1
-
-# For PDF processing
-pypdf==3.17.1
+# Optional dependencies
+pydantic>=2.0.0
+tqdm>=4.66.0
+requests>=2.31.0
+pdfminer.six
+psutil
+numpy>=1.24.0
