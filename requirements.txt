@@ -13,7 +13,7 @@ huggingface-hub>=0.19.0
 # Document processing
 PyPDF2
 pypdf
-
+pi_heif
 # LLM providers
 groq
 unstructured
