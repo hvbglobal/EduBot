@@ -9,7 +9,7 @@ langchain-core>=0.1.6
 faiss-cpu>=1.7.4
 sentence-transformers
 huggingface-hub>=0.19.0
-
+unstructured_inference
 # Document processing
 PyPDF2
 pypdf
