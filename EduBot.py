@@ -396,8 +396,8 @@ def create_study_guide_chain():
         retriever = st.session_state.vectorstore.as_retriever(
             search_kwargs={
                 "k": 12,  # More documents for comprehensive coverage
-                "score_threshold": 0.3,  # Lower threshold to capture more related content
-                "fetch_k": 20  # Even more candidates to ensure topic breadth
+                "score_threshold": 0.25,  # Lower threshold to capture more related content
+                "fetch_k": 25  # Even more candidates to ensure topic breadth
             }
         )
     except ValueError as e:
@@ -417,15 +417,16 @@ def create_study_guide_chain():
             raise
     
     # Use temperature from session state - always get the current value
+    # Use a slightly higher temperature for creativity in study guide generation
     llm = ChatGroq(
         model_name=model_name, 
-        temperature=st.session_state.temperature_override,
-        max_tokens=st.session_state.max_tokens
+        temperature=max(0.3, st.session_state.temperature_override),  # Minimum 0.3 for study guides
+        max_tokens=min(8000, st.session_state.max_tokens * 2)  # Double the tokens but cap at 8000
     )
     
-    # Specialized prompt template for study guides that incorporates guide format
+    # Improved prompt template for study guides that focuses on content completion
     template = """
-    You are an expert educational content creator specializing in comprehensive study guides. Your goal is to create an IN-DEPTH, WELL-STRUCTURED study guide that thoroughly covers the requested topic.
+    You are an expert educational content creator specializing in comprehensive study guides. Your task is to create a COMPLETE, IN-DEPTH study guide that thoroughly covers the requested topic.
     
     Learning preferences:
     - Learning style: {learning_style}
@@ -444,64 +445,57 @@ def create_study_guide_chain():
     Topic: {topic}
     Number of main sections requested: {num_sections}
     
-    STUDY GUIDE STRUCTURE:
+    IMPORTANT: You MUST create a COMPLETE study guide with FULL CONTENT for each section, not just outlines or section titles. Each section must have several paragraphs of detailed information.
     
-    1. CREATE A COMPREHENSIVE STUDY GUIDE with these components:
-       - Title: Clear, descriptive title for the study guide
-       - Introduction: Brief overview of the topic, its importance, and what students will learn
-       - Main Sections: {num_sections} clearly defined main sections that logically organize the content
-       - Sub-sections: Important sub-topics within each main section
-       - Key Concepts: Essential ideas clearly explained in detail
-       - Examples: Multiple relevant examples with step-by-step explanations
-       - Visual Suggestions: Describe diagrams or visual aids that would help understanding
-       - Practice Questions: A mix of basic recall, application, and critical thinking questions with answers
-       - Summary: Synthesis of the most important points
-       - Additional Resources: Suggest areas for further study
+    Your study guide MUST include:
     
-    2. CONTENT GUIDELINES:
-       - Adjust the format to match the requested guide format: {guide_format}
-       - For "Comprehensive" format: include detailed explanations of all concepts
-       - For "Condensed" format: focus on key points with concise explanations
-       - For "Visual-focused" format: emphasize visual learning with detailed diagram descriptions
-       - For "Practice-oriented" format: include more examples and practice questions
-       - Synthesize information from across the context to provide a holistic view
-       - Explain complex concepts thoroughly with multiple approaches
-       - Provide detailed explanations, not just definitions
-       - Include real-world applications and practical implications
-       - Create connections between different aspects of the topic
-       - Cover foundational concepts AND advanced aspects
-       - For each key concept, explain BOTH what it is and why it matters
-       - Include challenging practice questions that test deep understanding
+    # {topic} - Comprehensive Study Guide
     
-    3. FORMATTING:
-       - Use clear, hierarchical headers (##, ###, ####)
-       - Use bullet points and numbered lists for clarity
-       - Bold key terms and important concepts
-       - Create tables when appropriate for comparing concepts
-       - Use consistent formatting throughout
+    ## Introduction
+    [Write 2-3 paragraphs introducing the topic, its importance, and what students will learn]
     
-    Remember: Your goal is to create an exceptional educational resource that gives students a COMPLETE understanding of the topic, carefully organized for optimal learning.
+    ## Section 1: [First Main Topic]
+    [Write 3-5 paragraphs with detailed information about this section]
+    [Include specific definitions, explanations, and examples]
+    [Add relevant subsections with their own content]
+    
+    ## Section 2: [Second Main Topic]
+    [Write 3-5 paragraphs with detailed information about this section]
+    [Include specific definitions, explanations, and examples]
+    [Add relevant subsections with their own content]
+    
+    [Continue with remaining sections...]
+    
+    ## Practice Questions
+    1. [First question with detailed answer]
+    2. [Second question with detailed answer]
+    [Include at least 3-5 practice questions with comprehensive answers]
+    
+    ## Summary
+    [Write 1-2 paragraphs summarizing the key points of the entire topic]
+    
+    Remember: You MUST provide COMPLETE, DETAILED CONTENT for each section, not just outlines or headings. Your study guide should be comprehensive and ready for students to use immediately.
     """
     
     prompt = ChatPromptTemplate.from_template(template)
     
-    # Enhanced implementation for study guide generation with improved context gathering and error handling
+    # Enhanced implementation for study guide generation with improved context gathering
     def get_context_and_topic(topic):
         # Create multiple targeted queries for better coverage
         targeted_queries = [
-            f"Define and explain {topic} in detail",
-            f"Key concepts and principles of {topic}",
-            f"Practical applications and examples of {topic}",
-            f"History and development of {topic}",
-            f"Current understanding and advanced topics in {topic}",
-            f"Related topics and connections to {topic}"
+            f"{topic} definition and explanation",
+            f"{topic} key concepts and principles",
+            f"{topic} examples and applications",
+            f"{topic} important details",
+            f"{topic} related concepts",
+            f"information about {topic}"
         ]
         
         with st.spinner("Gathering comprehensive information for your study guide..."):
-            st.text("Step 1/3: Retrieving relevant content from your textbooks...")
+            st.text("Step 1/4: Retrieving relevant content from your textbooks...")
             
             all_docs = []
-            # Run each targeted query with error handling
+            # Run each targeted query
             for query in targeted_queries:
                 try:
                     docs = retriever.invoke(query)
@@ -510,11 +504,18 @@ def create_study_guide_chain():
                     st.warning(f"Error retrieving information for '{query}': {str(e)}")
                     continue
             
+            # Also do a direct search for the topic itself
+            try:
+                docs = retriever.invoke(topic)
+                all_docs.extend(docs)
+            except Exception as e:
+                st.warning(f"Error retrieving information for the topic directly: {str(e)}")
+            
             # Check if we found any documents
             if not all_docs:
                 st.warning("No relevant information found in the textbooks for this topic.")
                 context = "No relevant information found in the textbooks. Please create a study guide based on your general knowledge of the topic."
-                st.text("Step 2/3: Generating study guide with general knowledge...")
+                st.text("Step 2/4: Generating study guide with general knowledge...")
                 return {
                     "context": context,
                     "topic": topic,
@@ -530,14 +531,22 @@ def create_study_guide_chain():
                 }
             
             # Deduplicate documents by content to avoid repetition
+            st.text("Step 2/4: Deduplicating and processing content...")
             unique_content = {}
             unique_docs = []
             for doc in all_docs:
-                if doc.page_content not in unique_content:
-                    unique_content[doc.page_content] = True
+                content_hash = hash(doc.page_content[:100])  # Use first 100 chars as hash
+                if content_hash not in unique_content:
+                    unique_content[content_hash] = True
                     unique_docs.append(doc)
             
-            st.text(f"Step 2/3: Processing {len(unique_docs)} relevant sections...")
+            # Sort documents by relevance (if available in metadata)
+            try:
+                unique_docs.sort(key=lambda x: x.metadata.get('score', 0), reverse=True)
+            except:
+                pass  # Skip sorting if not possible
+            
+            st.text(f"Step 3/4: Processing {len(unique_docs)} relevant sections...")
             
             # Extract source information for each document
             formatted_docs = []
@@ -546,10 +555,11 @@ def create_study_guide_chain():
                 content = doc.page_content.strip()
                 formatted_docs.append(f"[DOCUMENT {i+1} FROM {source}]:\n{content}\n")
             
-            # Join all formatted documents
-            context = "\n\n".join(formatted_docs)
+            # Join all formatted documents with clear separation
+            context = "\n\n" + "\n\n".join(formatted_docs) + "\n\n"
             
-            st.text("Step 3/3: Generating study guide...")
+            # Add a final preprocessing step to analyze the context
+            st.text("Step 4/4: Analyzing content and generating study guide...")
         
         return {
             "context": context,
