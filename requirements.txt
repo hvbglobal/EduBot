@@ -24,3 +24,4 @@ requests>=2.31.0
 pdfminer.six
 psutil
 numpy>=1.24.0
+pdf2image
