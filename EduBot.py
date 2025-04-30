@@ -28,7 +28,7 @@ if 'vectorstore' not in st.session_state:
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = []
 if 'groq_api_key' not in st.session_state:
-    st.session_state.groq_api_key = "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"
+    st.session_state.groq_api_key = "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"
 if 'processing_complete' not in st.session_state:
     st.session_state.processing_complete = False
 if 'processing_errors' not in st.session_state:
